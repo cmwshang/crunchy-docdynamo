@@ -1,0 +1,823 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE doc SYSTEM "doc.dtd">
+<doc title="OpenShift Dedicated Examples - Crunchy Containers for PostgreSQL">
+<description>OpenShift Dedicated Examples - Crunchy Containers for PostgreSQL</description>
+<section id="_openshift_dedicated_environment">
+<title>OpenShift Dedicated Environment</title>
+<p>Here are instructions for running examples on an OpenShift 3.5.5 Dedicated
+environment.  For Dedicated, we have built a set of templates
+that can be installed into a Dedicated instance to help automate
+the creation of Crunchy Container Suite containers.</p>
+<p>A defined set of templates are supported for various purposes, including:</p>
+<list>
+<list-item>
+A primary database
+</list-item>
+<list-item>
+A replica database
+</list-item>
+<list-item>
+A full database backup
+</list-item>
+<list-item>
+A full database restore
+</list-item>
+<list-item>
+PGAdmin4
+</list-item>
+</list>
+<p>Each template is described below.</p>
+<p>There are some limitations presented by OpenShift 3.5.5 in the way
+in which we can scale up the replica databases.  Without support
+for dynamic volume provisioning and stateful sets, the replica
+databases can be scaled in a more manual way by creating a new
+replica database using the provided template.  If you want say
+3 replica databases, you would use the template 3 times to create
+the 3 replicas.</p>
+<p>When OpenShift supports StatefulSets and Dynamic Provisioning, the
+replica can be included within a Deployment and/or StatefulSet which
+will allow for scaling to be done by manipulating the Replica Count
+within the Deployment or StatefulSet.</p>
+</section>
+<section id="_installation">
+<title>Installation</title>
+<p>Users can install the templates into their OpenShift environment
+using the following commands.</p>
+<p>First, add the following lines to your .bashrc file to set
+the project paths:</p>
+<code-block>export GOPATH=$HOME/cdev
+export GOBIN=$GOPATH/bin
+export PATH=$PATH:$GOBIN
+export CCP_BASEOS=centos7
+export CCP_PGVERSION=10
+export CCP_PG_FULLVERSION=10.3
+export CCP_VERSION=1.8.1
+export CCP_IMAGE_PREFIX=crunchydata
+export CCP_IMAGE_TAG=$CCP_BASEOS-$CCP_PG_FULLVERSION-$CCP_VERSION
+export CCPROOT=$GOPATH/src/github.com/crunchydata/crunchy-containers
+export CCP_CLI=kubectl
+export PV_PATH=/mnt/nfsfileshare
+export LOCAL_IP='hostname --ip-address'
+export CCP_IMAGE_PREFIX=crunchydata
+export REPLACE_CCP_IMAGE_PREFIX=crunchydata
+export TOKEN=yourtokengoeshere
+export REG=docker-registry-default.router.default.svc.cluster.local
+export REG=172.30.240.45:5000
+export REG=registry.crunchydata.openshift.com
+export CCP_NAMESPACE=demo</code-block>
+<p>You will then need to log out and back in for the changes to your .bashrc
+file to take effect.</p>
+<p>Next, set up a project directory structure and pull down the project:</p>
+<code-block>mkdir $HOME/cdev $HOME/cdev/src $HOME/cdev/pkg $HOME/cdev/bin
+cd $GOPATH
+sudo yum -y install golang git docker postgresql
+go get github.com/tools/godep
+cd src/github.com
+mkdir crunchydata
+cd crunchydata
+git clone https://github.com/crunchydata/crunchy-containers
+cd crunchy-containers
+git checkout 1.8.1
+godep restore</code-block>
+<p>Finally, you'll change directories to your Dedicated examples repository and create all the templates stored there.</p>
+<code-block>cd crunchy-containers/examples/dedicated
+./create-all.sh</code-block>
+<section id="_example_details">
+<title>Example Details</title>
+<p>Each example will build a template to be later used by
+users when they want to deploy a Crunchy container.</p>
+<p>The templates are installed by running the following script
+within each example directory:</p>
+<code-block>./run.sh</code-block>
+<p>When you run the examples, there are variable substitutions taking
+place to set the image path and image tags within the OpenShift
+templates.  This substitution allows for better support of different
+deployments and deployment environments.</p>
+<p>You can either use the templates within the OpenShift Web Console
+using the <b>Add to Project</b> functionality or use the <b>oc</b> CLI locally
+to use the templates to deploy databases.</p>
+<p>Within each template directory, there is an <b>example.sh</b> script
+that shows how to use the template using the <b>oc</b> CLI.</p>
+</section>
+<section id="_deploying_images_to_openshift_registry">
+<title>Deploying Images to OpenShift Registry</title>
+<p>You can deploy the Crunchy built container images to the OpenShift
+registry by running the following script:</p>
+<code-block>cd $CCPROOT/examples/dedicated
+./push-images.sh</code-block>
+<p>The script will create the appropriate image tag and push the image to the
+remote registry.</p>
+<p>You can verify the existence of the images on your external Dedicated server
+through the following commands:</p>
+<code-block>oc get is
+oc get templates</code-block>
+<p><b>If you are a Crunchy enterprise customer, you will need to change the $TOKEN and $REG
+values in the push-images.sh script to the ones that correspond to your company's registries
+along with your personal access token. The necessary token and server information can be
+obtained either through the web console (console.$YOURCOMPANY.openshift.com) or by visiting
+your company's API server and requesting a token
+(<link url="https://api.$YOURCOMPANY.openshift.com/oath/token/request">https://api.$YOURCOMPANY.openshift.com/oath/token/request</link>).</b></p>
+<p>As you use the templates, you can specify the images in your templates using the OpenShift
+registry URL as follows for the <b>default</b> OpenShift project:</p>
+<code-block>172.30.149.135:5000/default</code-block>
+</section>
+</section>
+<section id="_containers_used">
+<title>Containers Used</title>
+<section id="_crunchy_postgres_container">
+<title>crunchy-postgres container</title>
+<p>The crunchy-postgres container executes the Postgres database.</p>
+<p><b>Packages</b></p>
+<p>The container image is built using either the Crunchy Postgres release
+or the community version based upon a flag in the Makefile.</p>
+<p>The Crunchy Postgres RPMs are available to Crunchy customers only.  The
+Crunchy release is meant for customers that require enterprise level
+support.</p>
+<p>The PGDG community RPMs can be used as well by simply commenting out
+the Crunchy yum repo within the Dockerfiles and uncommenting
+the PGDG yum repo.</p>
+<p><b>setup.sql</b></p>
+<p>The <b>setup.sql</b> script is used to define startup SQL commands that are
+executed when the database is first created.</p>
+<p><b>Environment Variables</b></p>
+<list>
+<list-item>
+PG_MODE - either <b>primary</b>, <b>replica</b> or <b>set</b>, this value determines whether
+   the database is set up as a primary or replica instance. In the
+   case of <b>set</b>, it means the container is started within a StatefulSet
+   in a Kubernetes cluster.
+</list-item>
+<list-item>
+PG_PRIMARY_USER - the value to use for the user ID created as
+   primaryuser.  The <b>primaryuser</b> has super user privileges.
+</list-item>
+<list-item>
+PG_PRIMARY_PASSWORD - the password for the PG_PRIMARY_USER database user
+</list-item>
+<list-item>
+PG_USER - the value to use for the user ID created as a normal user.
+   This user is created as part of the setup.sql script upon database
+   creation and allows users to predefine an application user.
+</list-item>
+<list-item>
+PG_PASSWORD - the password for the PG_USER database user that is created
+</list-item>
+<list-item>
+PG_DATABASE - a database that is created upon database initialization
+</list-item>
+<list-item>
+PG_ROOT_PASSWORD - the postgres user password set up upon database
+   initialization
+</list-item>
+<list-item>
+PG_LOCALE - if set, the locale you want to create the database with, if
+   not set, the default locale is used
+</list-item>
+<list-item>
+SYNC_REPLICA - if set, this value is used to specify the application_name
+   of a replica that will be used for a synchronous replication
+</list-item>
+<list-item>
+CHECKSUMS - if set, this value is used to enable the <b>--data-checksums</b>
+   option when initdb is executed at initialization, if not set, the
+   default is to <b>not</b> enable data checksums
+</list-item>
+<list-item>
+XLOGDIR - if set, initdb will use the specified directory for WAL
+</list-item>
+<list-item>
+ARCHIVE_MODE - if set to <b>on</b>, will enable continuous WAL archiving
+   by setting the value within the postgresql.conf file <b>archive_mode</b>
+   setting, if not set, the default is <b>off</b>
+</list-item>
+<list-item>
+ARCHIVE_TIMEOUT - if set to a number (in seconds) , will specify
+   the postgresql.conf <b>archive_timeout</b> setting, if not set, the
+   default value of <b>60</b> is used.
+</list-item>
+<list-item>
+PGAUDIT_ANALYZE - if set, will cause the container to also start the
+   pgaudit_analyze program in the background
+</list-item>
+<list-item>
+PGDATA_PATH_OVERRIDE - if set, will cause the container to use a /pgdata path
+   name of your choosing rather than the hostname of the container which
+   is the default. This is useful for a primary in a deployment.
+</list-item>
+</list>
+<p><b>Features</b></p>
+<p>The following features are supported by the crunchy-postgres container:</p>
+<list>
+<list-item>
+use of OpenShift secrets
+</list-item>
+<list-item>
+ability to restore from a database backup
+</list-item>
+<list-item>
+use of custom pg_hba.conf and postgresql.conf files
+</list-item>
+<list-item>
+ability to override postgresql.conf configuration parameters
+</list-item>
+<list-item>
+ability to override the default setup.sql script
+</list-item>
+<list-item>
+ability to set the database locale
+</list-item>
+<list-item>
+ability to specify a synchronous replica application_name
+</list-item>
+<list-item>
+ability to specify a recovery using PITR and WAL files, see
+   pitr.adoc for a detailed design explanation of how PITR
+   is implemented within the container suite
+</list-item>
+</list>
+<p><b>Locale Support</b></p>
+<p>Adding locale support to the container is accomplished by
+running <i>yum reinstall glibc_common</i> within the container, this
+increases the size of the container image and can be removed if you
+do not require specific locale support.</p>
+<p>You can specify the PG_LOCALE environment variable which is passed to the initdb
+command when the initial data files are created, for example:</p>
+<code-block>"name": "PG_LOCALE",
+"value": "fr_BE.UTF-8"</code-block>
+<p>By default, no locale is specified when the initdb command is executed.</p>
+</section>
+</section>
+<section id="_crunchy_postgres_gis">
+<title>crunchy-postgres-gis</title>
+<p>This container is the same as the crunchy-postgres container except
+that it includes the following PostgreSQL extensions:</p>
+<list>
+<list-item>
+postgis
+</list-item>
+<list-item>
+pl/r
+</list-item>
+</list>
+<p>You can test the pl/r extension by running the following commands
+for example:</p>
+<code-block>create extension plr;
+SELECT * FROM plr_environ();
+SELECT load_r_typenames();
+SELECT * FROM r_typenames();
+SELECT plr_array_accum('{23,35}', 42);
+CREATE OR REPLACE FUNCTION plr_array (text, text)
+RETURNS text[]
+AS '$libdir/plr','plr_array'
+LANGUAGE 'c' WITH (isstrict);
+select plr_array('hello','world');</code-block>
+<section id="_crunchy_backup">
+<title>crunchy-backup</title>
+<p>The crunchy-backup container executes a pg_basebackup against another
+database container.  The backup is a full backup using the standard
+utility included with postgres, pg_basebackup.</p>
+<p><b>Backup Location</b></p>
+<p>Backups are stored in a mounted backup volume location, using the
+database host name plus <b>-backups</b>  as a sub-directory, then followed by a unique
+backup directory based upon a date/timestamp.  It is left to the
+user to perform database backup archives in this current version
+of the container.  This backup location is referenced when performing
+a database restore.</p>
+<p><b>Dependencies</b></p>
+<p>The container is meant to be using a NFS or similar network file system
+to persist database backups.</p>
+<p><b>Environment Variables</b></p>
+<list>
+<list-item>
+BACKUP_LABEL - when set, will set the label of the backup, if not
+   set the default label used is <b>crunchy-backup</b>
+</list-item>
+<list-item>
+BACKUP_HOST - required, this is the database we will be doing the
+   backup for
+</list-item>
+<list-item>
+BACKUP_USER - required, this is the database user we will be doing the
+   backup with
+</list-item>
+<list-item>
+BACKUP_PASS - required, this is the database password we will be doing the
+   backup with
+</list-item>
+<list-item>
+BACKUP_PORT - required, this is the database port we will be doing the
+   backup with
+</list-item>
+</list>
+</section>
+<section id="_crunchy_pgadmin4">
+<title>crunchy-pgadmin4</title>
+<p>The crunchy-ppgadmin4 container executes the pgadmin4 web application.</p>
+<p>The pgadmin4 project is found at the following location:
+<link url="https://www.pgadmin.org/">https://www.pgadmin.org/</link></p>
+<p>pgadmin4 provides a web user interface to PostgreSQL databases.  A
+sample screenshot is below:</p>
+<code-block>|</code-block>
+<p><b>Environment Variables</b></p>
+<list>
+<list-item>
+None
+</list-item>
+</list>
+<p><b>Features</b></p>
+<p>The following features are supported by the crunchy-pgadmin4 container:</p>
+<list>
+<list-item>
+mount config_local.py and pgadmin4.db to /data volume inside the
+container to support customization and store the pgadmin4 database
+file
+</list-item>
+<list-item>
+expose port 5050 which is the web server port
+</list-item>
+<list-item>
+a sample pgadmin4 database is provided with an initial administrator
+user <b>admin@admin.org</b> and password of <b>password</b>
+</list-item>
+</list>
+<p><b>Restrictions</b></p>
+<list>
+<list-item>
+None
+</list-item>
+</list>
+</section>
+</section>
+<section id="_openshift_dedicated_template_examples">
+<title>OpenShift Dedicated Template Examples</title>
+<section id="_primary_database_template">
+<title>Primary Database Template</title>
+<p>Template Name is <b>crunchy-primary</b></p>
+<p>Example is found here:</p>
+<code-block>examples/dedicated/crunchy-primary</code-block>
+<p>This template will create the following:</p>
+<list>
+<list-item>
+A database container crunchy-postgres as the primary running within a Deployment
+</list-item>
+<list-item>
+A database service for the primary
+</list-item>
+</list>
+<p>This example deploys a primary database configuration
+which uses a Persistent Volume Claim for persistence.</p>
+<table>
+<title label="Table 1. ">Table Template Parameters</title>
+
+<table-header>
+<table-column align="left">Parameter</table-column>
+<table-column align="left">Description</table-column>
+<table-column align="left">Default</table-column>
+</table-header>
+
+<table-data>
+<table-row>
+<table-cell>NAME</table-cell>
+<table-cell>the database service name</table-cell>
+<table-cell>example</table-cell>
+</table-row>
+<table-row>
+<table-cell>PGDATA_PATH_OVERRIDE</table-cell>
+<table-cell>should match the name of the NAME parameter in most cases</table-cell>
+<table-cell>example</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PORT</table-cell>
+<table-cell>the postgres port to use</table-cell>
+<table-cell>5432</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_USER</table-cell>
+<table-cell>the user name to create and use for a primary user</table-cell>
+<table-cell>primaryuser</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PASSWORD</table-cell>
+<table-cell>the password to use for the primary user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_USER</table-cell>
+<table-cell>the user name to create as a normal user</table-cell>
+<table-cell>testuser</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PASSWORD</table-cell>
+<table-cell>the password to use for the normal user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_DATABASE</table-cell>
+<table-cell>the name of the the normal user database which will be created</table-cell>
+<table-cell>userdb</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_ROOT_PASSWORD</table-cell>
+<table-cell>the password of the postgres user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>SYNC_REPLICA</table-cell>
+<table-cell>the name of a sync replica that will be allowed to connect if any</table-cell>
+<table-cell></table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_TAG</table-cell>
+<table-cell>the image version to use for the container</table-cell>
+<table-cell>rhel7-9.6.8-1.8.1</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_PREFIX</table-cell>
+<table-cell>the image prefix to use, typically the image stream prefix of your registry</table-cell>
+<table-cell>172.30.149.135:5000/default</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_NAME</table-cell>
+<table-cell>the image name to use, either crunchy-postgres or crunchy-postgres-gis</table-cell>
+<table-cell>crunchy-postgres</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_NAME</table-cell>
+<table-cell>the name to assign to the PVC created for this database typically NAME-pvc</table-cell>
+<table-cell>example-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_SIZE</table-cell>
+<table-cell>the size of the PVC to create</table-cell>
+<table-cell>300M</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_ACCESS_MODE</table-cell>
+<table-cell>the PVC access mode to use for the created PVC</table-cell>
+<table-cell>ReadWriteMany</table-cell>
+</table-row>
+<table-row>
+<table-cell>TEMP_BUFFERS</table-cell>
+<table-cell>the postgres temp_buffers configuration setting</table-cell>
+<table-cell>9MB</table-cell>
+</table-row>
+<table-row>
+<table-cell>MAX_CONNECTIONS</table-cell>
+<table-cell>the postgres max_connections setting</table-cell>
+<table-cell>101</table-cell>
+</table-row>
+<table-row>
+<table-cell>SHARED_BUFFERS</table-cell>
+<table-cell>the postgres shared_buffers configuration setting</table-cell>
+<table-cell>129MB</table-cell>
+</table-row>
+<table-row>
+<table-cell>MAX_WAL_SENDERS</table-cell>
+<table-cell>the postgres max_wal_senders configuration setting</table-cell>
+<table-cell>7</table-cell>
+</table-row>
+<table-row>
+<table-cell>WORK_MEM</table-cell>
+<table-cell>the postgres work-mem configuration setting</table-cell>
+<table-cell>5MB</table-cell>
+</table-row>
+</table-data>
+</table>
+</section>
+<section id="_database_backup_template">
+<title>Database Backup Template</title>
+<p>Template Name is <b>crunchy-backup</b></p>
+<p>Example is found here:</p>
+<code-block>examples/dedicated/crunchy-backup</code-block>
+<p>This template will create the following:</p>
+<list>
+<list-item>
+Job which generates a backup container
+</list-item>
+</list>
+<p>This example deploys a Job which results in a Pod
+created which will run the <b>crunchy-backup</b> container.  It
+will create a backup of a database and store the backup
+files in a PVC.</p>
+<table>
+<title label="Table 2. ">Table Template Parameters</title>
+
+<table-header>
+<table-column align="left">Parameter</table-column>
+<table-column align="left">Description</table-column>
+<table-column align="left">Default</table-column>
+</table-header>
+
+<table-data>
+<table-row>
+<table-cell>JOB_NAME</table-cell>
+<table-cell>the job name</table-cell>
+<table-cell>backupjob</table-cell>
+</table-row>
+<table-row>
+<table-cell>DB_NAME</table-cell>
+<table-cell>the service name of the database to backup</table-cell>
+<table-cell>primary</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_NAME</table-cell>
+<table-cell>the PVC name to use to store the backup files</table-cell>
+<table-cell>backup-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_SIZE</table-cell>
+<table-cell>the PVC size to allocate</table-cell>
+<table-cell>500M</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_ACCESS_MODE</table-cell>
+<table-cell>the PVC access mode to use in the creation of the PVC</table-cell>
+<table-cell>ReadWriteMany</table-cell>
+</table-row>
+<table-row>
+<table-cell>BACKUP_USER</table-cell>
+<table-cell>the postgres user to use when performing the backup</table-cell>
+<table-cell>primary</table-cell>
+</table-row>
+<table-row>
+<table-cell>BACKUP_PASS</table-cell>
+<table-cell>the postgres user password to use when performing the backup</table-cell>
+<table-cell>primary</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_PREFIX</table-cell>
+<table-cell>the container image prefix to use, typically the registry IP address and namespace</table-cell>
+<table-cell>172.30.149.135:5000/default</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_TAG</table-cell>
+<table-cell>the container image version to use</table-cell>
+<table-cell>rhel7-9.6.8-1.8.1</table-cell>
+</table-row>
+</table-data>
+</table>
+</section>
+<section id="_restore_database_template">
+<title>Restore Database Template</title>
+<p>Template Name is <b>crunchy-restore</b></p>
+<p>Example is found here:</p>
+<code-block>examples/dedicated/crunchy-restore</code-block>
+<p>This template will create the following:</p>
+<list>
+<list-item>
+A database container named crunchy-postgres
+</list-item>
+<list-item>
+A database service
+</list-item>
+</list>
+<p>This example performs a database restore using a backup archive
+found in a PVC.</p>
+<table>
+<title label="Table 3. ">Table Template Parameters</title>
+
+<table-header>
+<table-column align="left">Parameter</table-column>
+<table-column align="left">Description</table-column>
+<table-column align="left">Default</table-column>
+</table-header>
+
+<table-data>
+<table-row>
+<table-cell>NAME</table-cell>
+<table-cell>the job name</table-cell>
+<table-cell>restoredb</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PORT</table-cell>
+<table-cell>the postgres port to use</table-cell>
+<table-cell>5432</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_USER</table-cell>
+<table-cell>the user name to create and use for a primary user</table-cell>
+<table-cell>primaryuser</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PASSWORD</table-cell>
+<table-cell>the password to use for the primary user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_USER</table-cell>
+<table-cell>the user name to create as a normal user</table-cell>
+<table-cell>testuser</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PASSWORD</table-cell>
+<table-cell>the password to use for the normal user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_DATABASE</table-cell>
+<table-cell>the name of the the normal user database which will be created</table-cell>
+<table-cell>userdb</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_ROOT_PASSWORD</table-cell>
+<table-cell>the password of the postgres user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PGDATA_PATH_OVERRIDE</table-cell>
+<table-cell>the name to overide the pgdata path with typically the NAME value</table-cell>
+<table-cell>restoredb</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_NAME</table-cell>
+<table-cell>the PVC name to use when creating the new PVC typically NAME-pvc</table-cell>
+<table-cell>restoredb-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_SIZE</table-cell>
+<table-cell>the PVC size to allocate</table-cell>
+<table-cell>500M</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_ACCESS_MODE</table-cell>
+<table-cell>the PVC access mode to use in the creation of the PVC</table-cell>
+<table-cell>ReadWriteMany</table-cell>
+</table-row>
+<table-row>
+<table-cell>BACKUP_PATH</table-cell>
+<table-cell>the backup archive path to restore from</table-cell>
+<table-cell>primary7-backups/2017-04-04-09-42-53</table-cell>
+</table-row>
+<table-row>
+<table-cell>BACKUP_PVC</table-cell>
+<table-cell>the backup archive PVC to restore from</table-cell>
+<table-cell>backup-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_PREFIX</table-cell>
+<table-cell>the container image prefix to use, typically the registy IP address and namespace</table-cell>
+<table-cell>172.30.149.135:5000/default</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_NAME</table-cell>
+<table-cell>the container image name to use, must match the image name used in the original db</table-cell>
+<table-cell>crunchy-postgres</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_TAG</table-cell>
+<table-cell>the container image version to use</table-cell>
+<table-cell>rhel7-9.6.8-1.8.1</table-cell>
+</table-row>
+</table-data>
+</table>
+</section>
+<section id="_replica_database_template">
+<title>Replica Database Template</title>
+<p>Template names is <b>crunchy-replica</b></p>
+<p>Example is found here:</p>
+<code-block>examples/dedicated/crunchy-replica</code-block>
+<p>These templates create the following:</p>
+<list>
+<list-item>
+replica database container crunchy-postgres using Persistent Volume Claim
+</list-item>
+<list-item>
+service for replica
+</list-item>
+</list>
+<table>
+<title label="Table 4. ">Table Template Parameters</title>
+
+<table-header>
+<table-column align="left">Parameter</table-column>
+<table-column align="left">Description</table-column>
+<table-column align="left">Default</table-column>
+</table-header>
+
+<table-data>
+<table-row>
+<table-cell>SERVICE_NAME</table-cell>
+<table-cell>the name to use for the database service</table-cell>
+<table-cell>replica</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_HOST</table-cell>
+<table-cell>the postgres primary service name the replica will connect to</table-cell>
+<table-cell>primary</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PORT</table-cell>
+<table-cell>the postgres port to use</table-cell>
+<table-cell>5432</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_USER</table-cell>
+<table-cell>the user name to create and use for a primary user</table-cell>
+<table-cell>primaryuser</table-cell>
+</table-row>
+<table-row>
+<table-cell>PG_PRIMARY_PASSWORD</table-cell>
+<table-cell>the password to use for the primary user</table-cell>
+<table-cell>password</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_NAME</table-cell>
+<table-cell>the PVC name to use when creating the new PVC typically NAME-pvc</table-cell>
+<table-cell>restoredb-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_SIZE</table-cell>
+<table-cell>the PVC size to allocate</table-cell>
+<table-cell>500M</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_ACCESS_MODE</table-cell>
+<table-cell>the PVC access mode to use in the creation of the PVC</table-cell>
+<table-cell>ReadWriteMany</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_PREFIX</table-cell>
+<table-cell>the container image prefix to use, typically the registy IP address and namespace</table-cell>
+<table-cell>172.30.149.135:5000/default</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_NAME</table-cell>
+<table-cell>the container image name to use, must match the image name used in the original db</table-cell>
+<table-cell>crunchy-postgres</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_TAG</table-cell>
+<table-cell>the container image version to use</table-cell>
+<table-cell>rhel7-9.6.8-1.8.1</table-cell>
+</table-row>
+</table-data>
+</table>
+</section>
+<section id="_pgadmin4_web_user_interface_template">
+<title>pgadmin4 Web User Interface Template</title>
+<p>Template Name is <b>crunchy-pgadmin4</b></p>
+<p>Example is found here:</p>
+<code-block>examples/dedicated/crunchy-pgadmin4</code-block>
+<p>This template will create the following:</p>
+<list>
+<list-item>
+PVC for the pgadmin4 configuration files and database
+</list-item>
+<list-item>
+pod containing the crunchy-pgadmin4 container
+</list-item>
+<list-item>
+service for the pgadmin4 container
+</list-item>
+</list>
+<table>
+<title label="Table 5. ">Table Template Parameters</title>
+
+<table-header>
+<table-column align="left">Parameter</table-column>
+<table-column align="left">Description</table-column>
+<table-column align="left">Default</table-column>
+</table-header>
+
+<table-data>
+<table-row>
+<table-cell>NAME</table-cell>
+<table-cell>the name to use for the pgadmin4 service</table-cell>
+<table-cell>pgadmin4</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_NAME</table-cell>
+<table-cell>the name to assign to the PVC created for this pgadmin4 typically NAME-pvc</table-cell>
+<table-cell>pgadmin4-pvc</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_SIZE</table-cell>
+<table-cell>the size of the PVC to create</table-cell>
+<table-cell>300M</table-cell>
+</table-row>
+<table-row>
+<table-cell>PVC_ACCESS_MODE</table-cell>
+<table-cell>the PVC access mode to use for the created PVC</table-cell>
+<table-cell>ReadWriteMany</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_PREFIX</table-cell>
+<table-cell>the container image prefix to use, typically the registy IP address and namespace</table-cell>
+<table-cell>172.30.149.135:5000/default</table-cell>
+</table-row>
+<table-row>
+<table-cell>CCP_IMAGE_TAG</table-cell>
+<table-cell>the container image version to use</table-cell>
+<table-cell>rhel7-9.6.8-1.8.1</table-cell>
+</table-row>
+</table-data>
+</table>
+</section>
+</section>
+<section id="_legal_notices">
+<title>Legal Notices</title>
+<p>Copyright &amp;copy; 2018 Crunchy Data Solutions, Inc.</p>
+<p>CRUNCHY DATA SOLUTIONS, INC. PROVIDES THIS GUIDE <quote>AS IS</quote> WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF NON INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p>Crunchy, Crunchy Data Solutions, Inc. and the Crunchy Hippo Logo are trademarks of Crunchy Data Solutions, Inc.</p>
+</section>
+</doc>
