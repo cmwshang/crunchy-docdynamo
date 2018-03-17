@@ -65,7 +65,12 @@
         </render>
 
         <render type="markdown">
-            <render-source key="install" file="INSTALL.md"/>
+            <render-source key="install" file="Install.md"/>
+            <render-source key="containers" file="Containers.md"/>
+            <render-source key="examples" file="Examples.md"/>
+            <render-source key="pitr" file="PITR.md"/>
+            <render-source key="dedicated" file="Dedicated.md"/>
+            <render-source key="backrest" file="Backup.md"/>
         </render>
     </render-list>
 </doc>

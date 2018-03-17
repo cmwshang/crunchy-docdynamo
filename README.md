@@ -2,7 +2,7 @@
 Documentation generation engine
 
 ## Setting up the Environment
-1. Get the crunchy-docdynamo from Gitub.
+1. Get the crunchy-docdynamo from Github.
 2. cd to the directory on your local machine and run
 
 ```
@@ -29,10 +29,10 @@ Next run docDynamo to build all the HTML, PDF and Markdown files specified in th
 /docdynamo/bin/docdynamo --doc-path=/crunchy-docdynamo/doc
 ```
 
-To generate a specific formate, use the --out option. For example, the following will build the PDF file:
+To generate a specific formate, use the --out option. For example, the following will build a markdown file:
 
 ```
-/docdynamo/bin/docdynamo --doc-path=/crunchy-docdynamo/doc --out=pdf
+/docdynamo/bin/docdynamo --doc-path=/crunchy-docdynamo/doc --out=markdown
 ```
 
 All output will be written to the doc/output directory.
